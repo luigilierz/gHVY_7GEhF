@@ -1,0 +1,245 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Card Display</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "San Francisco", sans-serif;
+            background-color: #f2f2f7;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .header {
+            width: 100%;
+            background-color: transparent;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            z-index: 10;
+            transition: background-color 0.3s ease;
+        }
+        .header.scrolled {
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .header h1 {
+            font-family: "Helvetica Neue", sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #000;
+            margin: 0;
+        }
+        .content {
+            margin-top: 60px;
+            margin-bottom: 60px;
+            padding: 20px;
+            flex: 1;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+        .card {
+            width: 120px;
+            height: 160px;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: scale(1.05);
+        }
+        .rare {
+            background: linear-gradient(135deg, #00b7eb, #0077b6);
+        }
+        .epic {
+            background: linear-gradient(135deg, #a100f2, #7209b7);
+        }
+        .rusty {
+            background: linear-gradient(135deg, #8b4513, #5c2e0c);
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            clip-path: polygon(0 0, 100% 0, 100% 70%, 0 100%);
+        }
+        .card img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-top: 5px;
+            z-index: 1;
+        }
+        .card .name {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 1;
+            position: absolute;
+            bottom: 5px;
+            width: 100%;
+        }
+        .navbar {
+            width: 100%;
+            background-color: #fff;
+            padding: 10px 0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            bottom: 0;
+            z-index: 10;
+        }
+        .navbar a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #888;
+            font-size: 12px;
+        }
+        .navbar a.active {
+            color: #007aff;
+        }
+        .navbar img {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header" id="header">
+        <h1>Печеньки</h1>
+    </div>
+    <div class="content">
+        <div class="container" id="cardContainer"></div>
+    </div>
+    <div class="navbar">
+        <a href="#" class="active">
+            <img src="https://via.placeholder.com/24?text=🍪" alt="Cookies">
+            <span>Печеньки</span>
+        </a>
+        <a href="#">
+            <img src="https://via.placeholder.com/24?text=👤" alt="Profile">
+            <span>Главная</span>
+        </a>
+        <a href="#">
+            <img src="https://via.placeholder.com/24?text=⚙️" alt="Settings">
+            <span>Настройки</span>
+        </a>
+    </div>
+
+    <script>
+        // Массив персонажей (добавляйте сюда персонажей)
+        const characters = [
+            { name: "Rye Cookie", rarity: "rare", imageUrl: "https://psv4.userapi.com/s/v1/d/toZaF0aahL4JR9y9hZVHG5nZDC5ZPHwca2tELmo0c6IqJ83COI9ppBC2DgHVzjQa5vP0KyRqkagq1xIUhGZ4Hw_QRFVChNc6IZfHmOjue2RFcOQCW4FikA/CH_Rye_Pose.png" },
+            { name: "Персонаж 2", rarity: "epic", imageUrl: "https://via.placeholder.com/80" },
+            { name: "Персонаж 3", rarity: "rusty", imageUrl: "https://via.placeholder.com/80" },
+            { name: "Персонаж 3", rarity: "rusty", imageUrl: "https://via.placeholder.com/80" },
+            { name: "Персонаж 2", rarity: "epic", imageUrl: "https://via.placeholder.com/80" },
+            { name: "Персонаж 3", rarity: "rusty", imageUrl: "https://via.placeholder.com/80" },
+            { name: "Персонаж 3", rarity: "rusty", imageUrl: "https://via.placeholder.com/80" }
+        ];
+
+        function renderCards() {
+            const container = document.getElementById('cardContainer');
+            container.innerHTML = '';
+
+            characters.forEach(char => {
+                const card = document.createElement('div');
+                card.className = `card ${char.rarity}`;
+                card.onclick = () => alert(`Вы выбрали персонажа: ${char.name}`);
+
+                const img = document.createElement('img');
+                img.src = char.imageUrl;
+                card.appendChild(img);
+
+                const name = document.createElement('div');
+                name.className = 'name';
+                name.textContent = char.name;
+                card.appendChild(name);
+
+                container.appendChild(card);
+            });
+        }
+
+        // Вызываем функцию для отображения карточек при загрузке страницы
+        renderCards();
+
+        // Добавляем эффект для заголовка при прокрутке
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('header');
+            if (window.scrollY > 0) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+    </script>
+</body>
+</html>
